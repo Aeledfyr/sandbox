@@ -153,6 +153,9 @@ fn main() {
                             Some(VirtualKeyCode::E) => {
                                 selected_particle = Some(ParticleType::Electricity);
                             }
+                            Some(VirtualKeyCode::F) => {
+                                selected_particle = Some(ParticleType::Fire);
+                            }
                             Some(VirtualKeyCode::L) => {
                                 selected_particle = Some(ParticleType::Life);
                             }

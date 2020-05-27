@@ -214,6 +214,53 @@ pub fn move_life(sandbox: &mut Sandbox, x: usize, y: usize) -> (usize, usize) {
     (x, y)
 }
 
+pub fn move_fire(sandbox: &mut Sandbox, x: usize, y: usize) -> (usize, usize) {
+    if y != 0 && sandbox.rng.gen_range(0, 100) < 25 {
+        if sandbox.cells[x][y - 1].is_none() {
+            sandbox.cells[x][y - 1] = sandbox.cells[x][y].take();
+            return (x, y - 1);
+        }
+
+        if x != 0 {
+            if sandbox.cells[x - 1][y - 1].is_none() && sandbox.cells[x - 1][y].is_none() {
+                sandbox.cells[x - 1][y - 1] = sandbox.cells[x][y].take();
+                return (x - 1, y - 1);
+            }
+        }
+
+        if x != SIMULATION_WIDTH - 1 {
+            if sandbox.cells[x + 1][y - 1].is_none() && sandbox.cells[x + 1][y].is_none() {
+                sandbox.cells[x + 1][y - 1] = sandbox.cells[x][y].take();
+                return (x + 1, y - 1);
+            }
+        }
+        return (x, y);
+    }
+
+    if y != SIMULATION_HEIGHT - 1 {
+        // Move 1 down if able
+        if sandbox.cells[x][y + 1].is_none() {
+            sandbox.cells[x][y + 1] = sandbox.cells[x][y].take();
+            return (x, y + 1);
+        }
+        // Else move 1 down and left if able
+        if x != 0 {
+            if sandbox.cells[x - 1][y + 1].is_none() && sandbox.cells[x - 1][y].is_none() {
+                sandbox.cells[x - 1][y + 1] = sandbox.cells[x][y].take();
+                return (x - 1, y + 1);
+            }
+        }
+        // Else move 1 down and right if able
+        if x != SIMULATION_WIDTH - 1 {
+            if sandbox.cells[x + 1][y + 1].is_none() && sandbox.cells[x + 1][y].is_none() {
+                sandbox.cells[x + 1][y + 1] = sandbox.cells[x][y].take();
+                return (x + 1, y + 1);
+            }
+        }
+    }
+    (x, y)
+}
+
 pub fn update_sand(sandbox: &mut Sandbox, x: usize, y: usize) {
     if sandbox.cells[x][y].unwrap().tempature >= 120 {
         sandbox.cells[x][y].as_mut().unwrap().ptype = ParticleType::Glass;
@@ -259,6 +306,7 @@ pub fn update_acid(sandbox: &mut Sandbox, x: usize, y: usize) {
             ParticleType::Electricity => true,
             ParticleType::Glass => false,
             ParticleType::Life => true,
+            ParticleType::Fire => false,
         }
     }
 
@@ -430,6 +478,7 @@ pub fn update_cryotheum(sandbox: &mut Sandbox, x: usize, y: usize) {
             ParticleType::Electricity => true,
             ParticleType::Glass => true,
             ParticleType::Life => true,
+            ParticleType::Fire => true,
         }
     }
 
@@ -478,6 +527,7 @@ pub fn update_unstable(sandbox: &mut Sandbox, x: usize, y: usize) {
             ParticleType::Electricity => true,
             ParticleType::Glass => true,
             ParticleType::Life => true,
+            ParticleType::Fire => false,
         }
     }
 
@@ -494,6 +544,9 @@ pub fn update_unstable(sandbox: &mut Sandbox, x: usize, y: usize) {
     if particle.tempature >= 200 {
         for x_offset in -20..=20 {
             for y_offset in -20..=20 {
+                if x_offset * x_offset + y_offset * y_offset > 20 * 20 {
+                    continue;
+                }
                 let x = x as isize + x_offset;
                 let y = y as isize + y_offset;
                 if (0..(SIMULATION_WIDTH as isize)).contains(&x)
@@ -501,7 +554,12 @@ pub fn update_unstable(sandbox: &mut Sandbox, x: usize, y: usize) {
                 {
                     if let Some(particle) = sandbox.cells[x as usize][y as usize] {
                         if vaporized_by_unstable(particle.ptype) {
-                            sandbox.cells[x as usize][y as usize] = None;
+                            if sandbox.rng.gen_range(0, 100) < 25 {
+                                sandbox.cells[x as usize][y as usize] =
+                                    Some(Particle::new(ParticleType::Fire, &mut sandbox.rng));
+                            } else {
+                                sandbox.cells[x as usize][y as usize] = None;
+                            }
                         }
                     }
                 }
@@ -522,5 +580,69 @@ pub fn update_life(sandbox: &mut Sandbox, x: usize, y: usize) {
     let mut particle = sandbox.cells[x][y].as_mut().unwrap();
     if particle.tempature < -50 || particle.tempature > 50 {
         particle.extra_data2 = 1;
+    }
+}
+
+pub fn update_fire(sandbox: &mut Sandbox, x: usize, y: usize) {
+    fn flamability(ptype: ParticleType) -> i8 {
+        match ptype {
+            ParticleType::Sand => 0,
+            ParticleType::WetSand => 0,
+            ParticleType::Water => 0,
+            ParticleType::Acid => 2,
+            ParticleType::Iridium => 0,
+            ParticleType::Replicator => 0,
+            ParticleType::Plant => 10,
+            ParticleType::Cryotheum => 0,
+            ParticleType::Unstable => 0,
+            ParticleType::Electricity => 0,
+            ParticleType::Glass => 0,
+            ParticleType::Life => {
+                // TODO: Check if dead
+                20
+            }
+            ParticleType::Fire => 0,
+        }
+    }
+
+    let mut particle = sandbox.cells[x][y].as_mut().unwrap();
+    if particle.tempature < 0 {
+        sandbox.cells[x][y] = None;
+        return;
+    }
+
+    if particle.extra_data1 == 3 {
+        particle.extra_data1 = 0;
+        if sandbox.rng.gen::<bool>() {
+            particle.tempature -= 1;
+        }
+    } else {
+        particle.extra_data1 += 1;
+    }
+
+    for i in -1..=1 {
+        for j in -1..=1 {
+            let (x, y) = ((x as isize + i), (y as isize + j));
+            let (x, y) = if x > 0
+                && y > 0
+                && x < super::sandbox::SIMULATION_WIDTH as isize
+                && y < super::sandbox::SIMULATION_HEIGHT as isize
+            {
+                (x as usize, y as usize)
+            } else {
+                continue;
+            };
+
+            if let Some(cell) = sandbox.cells[x][y] {
+                if sandbox.rng.gen_range(0, 100) < flamability(cell.ptype) {
+                    if sandbox.rng.gen_range(0, 100) < 25 {
+                        sandbox.cells[x][y] =
+                            Some(Particle::new(ParticleType::Fire, &mut sandbox.rng));
+                    } else {
+                        sandbox.cells[x][y] = None;
+                    }
+                }
+            }
+        }
     }
 }

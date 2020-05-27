@@ -56,6 +56,7 @@ impl Sandbox {
                                 }
                             }
                             ParticleType::Life => new_particle_position = move_life(self, x, y),
+                            ParticleType::Fire => new_particle_position = move_fire(self, x, y),
                         }
                         self.cells[new_particle_position.0][new_particle_position.1]
                             .as_mut()
@@ -82,6 +83,7 @@ impl Sandbox {
                 ParticleType::Electricity => 2,
                 ParticleType::Glass => 2,
                 ParticleType::Life => 4,
+                ParticleType::Fire => 2,
             };
             assert!(tc > 1);
             tc
@@ -149,6 +151,7 @@ impl Sandbox {
                             ParticleType::Electricity => update_electricity(self, x, y),
                             ParticleType::Glass => {}
                             ParticleType::Life => update_life(self, x, y),
+                            ParticleType::Fire => update_fire(self, x, y),
                         }
                     }
                 }
@@ -197,6 +200,10 @@ impl Sandbox {
                                 (90, 84, 84)
                             }
                         }
+                        ParticleType::Fire => {
+                            // TODO: temperature based color
+                            (255, 60, 0)
+                        }
                     };
 
                     // Tint blue/red based on tempature
@@ -232,6 +239,7 @@ impl Sandbox {
                                 0
                             }
                         }
+                        ParticleType::Fire => 100,
                         ParticleType::Electricity => 200,
                         ParticleType::Glass => 50,
                         ParticleType::Life => 0,
@@ -290,6 +298,7 @@ impl Particle {
                 ParticleType::Electricity => 0,
                 ParticleType::Glass => 0,
                 ParticleType::Life => 0,
+                ParticleType::Fire => 60,
             },
             extra_data1: match ptype {
                 ParticleType::Sand => 0,
@@ -304,6 +313,7 @@ impl Particle {
                 ParticleType::Electricity => 0,
                 ParticleType::Glass => 0,
                 ParticleType::Life => 0,
+                ParticleType::Fire => 0,
             },
             extra_data2: match ptype {
                 ParticleType::Sand => 0,
@@ -318,6 +328,7 @@ impl Particle {
                 ParticleType::Electricity => 0,
                 ParticleType::Glass => 0,
                 ParticleType::Life => 0,
+                ParticleType::Fire => 0,
             },
             color_offset: rng.gen_range(-10, 11),
             last_update: 0,
@@ -339,6 +350,7 @@ pub enum ParticleType {
     Electricity,
     Glass,
     Life,
+    Fire,
 }
 
 fn clamp(value: i16, min: i16, max: i16) -> i16 {
